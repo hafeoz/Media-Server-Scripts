@@ -248,7 +248,6 @@ scan_folder() {
 
         local newdir
         newdir="$(dirname "$dst_file")"
-        readonly newdir
         if [[ ! -d "$newdir" ]]; then
             echo "$(date): Creating $newdir"
             mkdir -p "$newdir"
@@ -262,7 +261,7 @@ scan_folder() {
     while IFS= read -r -u 15 -d $'\0' src_file; do
         if [[ ! -f "$src_file" ]]; then continue; fi
 
-        local -r dst_file="${src_file/\.mkv/_transcoded\.mkv}"
+        local dst_file="${src_file/\.mkv/_transcoded\.mkv}"
         if [ -f "$dst_file" ]; then
             continue
         fi
