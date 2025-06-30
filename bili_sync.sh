@@ -62,7 +62,7 @@ download_bvid() {
         done < <(find "$base_dir" -type f -iname "*\ \[$bvid\]\.*" -print0)
     else
         echo "==> Downloading $bvid" >&2
-        yt-dlpp download "$bvid" "$out_dir" || return "$?"
+        yt-dlpp download "https://www.bilibili.com/video/$bvid/" "$out_dir" || return "$?"
     fi
 }
 remove_from_sav_list() {
