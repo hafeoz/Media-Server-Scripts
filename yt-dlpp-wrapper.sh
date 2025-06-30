@@ -84,34 +84,32 @@ bvid="$(extract_bvid "$2")"
 readonly bvid
 if [[ -n "$bvid" ]]; then
     # Check if video with such id already exists
-    existing_videos="$(find_video_with_id "$3" "$bvid")"
-    readonly existing_videos
-    if [[ -n "$existing_videos" ]]; then
+    if [[ -n "$(find_video_with_id "$3" "$bvid")" ]]; then
         if is_true "$4"; then
             echo "> Updating danmaku for existing video..."
-            echo "$existing_videos" | while IFS= read -r -d $'\0' video_file; do
+            while IFS= read -r -d $'\0' video_file; do
                 echo "> Updating danmaku for $video_file"
                 yt-dlpp update-danmaku "$video_file"
-            done
+            done < <(find_video_with_id "$3" "$bvid")
         else
             echo "> Video with id $bvid already exists!"
-            echo "$existing_videos" | while IFS= read -r -d $'\0' video_file; do
+            while IFS= read -r -d $'\0' video_file; do
                 echo "    > $video_file"
-            done
+            done < <(find_video_with_id "$3" "$bvid")
         fi
         exit 0
     fi
 fi
 
 case "$1" in
-    video)
-        yt-dlpp download "$2" "$3"
-        ;;
-    audio)
-        yt-dlpp audio "$2" "$3"
-        ;;
-    *)
-        echo "Unknown mode: $1"
-        exit 1
-        ;;
+video)
+    yt-dlpp download "$2" "$3"
+    ;;
+audio)
+    yt-dlpp audio "$2" "$3"
+    ;;
+*)
+    echo "Unknown mode: $1"
+    exit 1
+    ;;
 esac
