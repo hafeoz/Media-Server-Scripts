@@ -68,12 +68,14 @@ download_bvid() {
 remove_from_sav_list() {
     local -r fav_id="$1"
     local -r resource="$2"
-    local -r result="$(curl -sS 'https://api.bilibili.com/x/v3/fav/resource/batch-del' \
+    local result
+    result="$(curl -sS 'https://api.bilibili.com/x/v3/fav/resource/batch-del' \
         --data-urlencode "resources=$resource" \
         --data-urlencode "media_id=$fav_id" \
         --data-urlencode 'platform=web' \
         --data-urlencode "csrf=$COOKIE_BILI_JCT" \
         -b "$COOKIE" | jq -r ".message")"
+    readonly result
     echo "=> Removed $resource from favlist (message $result)" >&2
 }
 sync_fav_list() {
