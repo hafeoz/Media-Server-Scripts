@@ -248,7 +248,7 @@ scan_folder() {
 
         local newdir
         newdir="$(dirname "$dst_file")"
-        reaodnly newdir
+        readonly newdir
         if [[ ! -d "$newdir" ]]; then
             echo "$(date): Creating $newdir"
             mkdir -p "$newdir"
