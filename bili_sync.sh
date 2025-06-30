@@ -84,7 +84,7 @@ sync_fav_list() {
     get_fav_list "$fav_id" | while read -r line; do
         local bvid="${line##*;}"
         local resource="${line%%;*}"
-        if download_bvid "$bvid" "$out_dir"; then
+        if download_bvid "$bvid" "$out_dir" "${BASE_DIR-/data}"; then
             if remove_from_sav_list "$fav_id" "$resource"; then
                 continue
             else
