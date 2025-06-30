@@ -45,7 +45,7 @@ get_fav_list() {
     shift
     _assert_no_params "$@"
 
-    echo "==> Getting BVIDs inside favlist"
+    echo "==> Getting BVIDs inside favlist" >&2
     curl --get -sS 'https://api.bilibili.com/x/v3/fav/resource/ids' --data-urlencode "media_id=$fav_id" --data-urlencode 'platform=web' -b "$COOKIE" | jq -r '.data[] | ((.id|tostring) + ":" + (.type|tostring) + ";" + (.bvid|tostring))' | tac
 }
 download_bvid() {
@@ -57,11 +57,11 @@ download_bvid() {
 
     if [[ "$(find "$base_dir" -type f -iname "*\ \[$bvid\]\.*" -print0 | wc -c)" -ne 0 ]]; then
         while IFS= read -r -d $'\0' video_file; do
-            echo "==> Updating danmaku for $video_file"
+            echo "==> Updating danmaku for $video_file" >&2
             yt-dlpp update-danmaku "$video_file" || return "$?"
         done < <(find "$base_dir" -type f -iname "*\ \[$bvid\]\.*" -print0)
     else
-        echo "==> Downloading $bvid"
+        echo "==> Downloading $bvid" >&2
         yt-dlpp download "$bvid" "$out_dir" || return "$?"
     fi
 }
@@ -74,13 +74,13 @@ remove_from_sav_list() {
         --data-urlencode 'platform=web' \
         --data-urlencode "csrf=$COOKIE_BILI_JCT" \
         -b "$COOKIE" | jq -r ".message")"
-    echo "=> Removed $resource from favlist (message $result)"
+    echo "=> Removed $resource from favlist (message $result)" >&2
 }
 sync_fav_list() {
     local -r fav_id="$1"
     local -r out_dir="$2"
-    echo "----------------"
-    echo "Syncing fav list $fav_id to $out_dir"
+    echo "----------------" >&2
+    echo "Syncing fav list $fav_id to $out_dir" >&2
     get_fav_list "$fav_id" | while read -r line; do
         local bvid="${line##*;}"
         local resource="${line%%;*}"
@@ -89,12 +89,12 @@ sync_fav_list() {
                 continue
             else
                 local errcode="$?"
-                >&2 echo "Failed to remove $bvid from favlist, error code $errcode"
+                echo "Failed to remove $bvid from favlist, error code $errcode" >&2
                 continue
             fi
         else
             local errcode="$?"
-            >&2 echo "Failed to download $bvid, error code $errcode"
+            echo "Failed to download $bvid, error code $errcode" >&2
             continue
         fi
     done
@@ -110,8 +110,8 @@ while true; do
         sync_fav_list "${favlist%%:*}" "${favlist##*:}"
     done
 
-    echo "----------------"
-    echo "==> Sleeping from $(date)"
+    echo "----------------" >&2
+    echo "==> Sleeping from $(date)" >&2
     sleep 5m &
     wait $!
 done
