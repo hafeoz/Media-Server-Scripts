@@ -84,7 +84,7 @@ bvid="$(extract_bvid "$2")"
 readonly bvid
 if [[ -n "$bvid" ]]; then
     # Check if video with such id already exists
-    if [[ -n "$(find_video_with_id "$3" "$bvid")" ]]; then
+    if [[ "$(find_video_with_id "$3" "$bvid" | wc -c)" -ne 0 ]]; then
         if is_true "$4"; then
             echo "> Updating danmaku for existing video..."
             while IFS= read -r -d $'\0' video_file; do
