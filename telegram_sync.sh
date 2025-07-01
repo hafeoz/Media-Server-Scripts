@@ -116,7 +116,7 @@ download_from_message_list() {
 
     # Download URLs
     jq -r ".messages[] | select(.file==\"\") | .id + \":\" .text" "$input_message_list" | while read -r line; do
-        local -r external_id="${line%%:*}"
+        local external_id="${line%%:*}"
         line="${line#*:}"
 
         if [[ "$line" == https://telegra.ph* ]]; then
@@ -147,7 +147,6 @@ sync_chat() {
         get_latest_message_id "$chat" "$message_list" | print_with_indent
         local latest_id
         latest_id="$(jq -r ".messages | map(.id) | max" "$message_list")"
-        readonly latest_id
 
         case $latest_id in
         '' | *[!0-9]*)
