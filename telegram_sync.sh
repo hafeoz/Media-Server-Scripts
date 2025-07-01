@@ -118,7 +118,7 @@ download_from_message_list() {
         if [[ "$line" == https://telegra.ph* ]]; then
             {
                 echo "==> Attempting to download $line using telegraph.py"
-                python /usr/local/bin/telegraph.py "$output_dir" "$line" 2>&1 | print_with_indent
+                python /usr/local/bin/telegraph.py "$output_dir" "$external_id" "$line" 2>&1 | print_with_indent
             } | print_with_indent
         elif [[ "$line" == https://t.me* ]]; then
             {
