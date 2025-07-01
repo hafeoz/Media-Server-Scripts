@@ -55,7 +55,9 @@ get_latest_message_id() {
     _assert_no_params "$@"
 
     echo "==> Getting latest message ID"
-    tdl chat export -c "$chat" -o "$tmpout" -T last -i 1 --all >/dev/null 2>&1
+    {
+        tdl chat export -c "$chat" -o "$tmpout" -T last -i 1 --all >/var/log/tdl_progress.log
+    } 2>&1 | print_with_indent
 }
 
 export_message_list() {
@@ -67,7 +69,9 @@ export_message_list() {
     _assert_no_params "$@"
 
     echo "==> Exporting messages ($start_id - $end_id)"
-    tdl chat export -c "$chat" -o "$output" -T id -i "${start_id},${end_id}" --all --with-content --pool 0 --delay 2s >/dev/null 2>&1
+    {
+        tdl chat export -c "$chat" -o "$output" -T id -i "${start_id},${end_id}" --all --with-content --pool 0 --delay 2s >/var/log/tdl_progress.log
+    } 2>&1 | print_with_indent
 }
 
 tdl_download_wrapper() {
@@ -87,7 +91,7 @@ tdl_download_wrapper() {
     readonly template
     {
         tdl dl --template "$template" --continue --rewrite-ext --dir "$output_dir" "$cmd" "$cmd_arg" --skip-same --pool 0 --delay 1s --limit 4 --threads 4 >/var/log/tdl_progress.log
-    } 2>&1 | print_with_indent
+    } 2>&1
 }
 
 download_from_message_list() {
@@ -102,7 +106,7 @@ download_from_message_list() {
     echo "==> Downloading $len media(s)"
 
     # Download embed media
-    if tdl_download_wrapper "$output_dir" --file "$input_message_list" ""; then
+    if tdl_download_wrapper "$output_dir" --file "$input_message_list" "" | print_with_indent; then
         echo "==> Download completed" | print_with_indent
     else
         local -r exit_code="$?"
@@ -140,14 +144,14 @@ sync_chat() {
     local -r message_list="$tmp_dir/message_list.json"
     echo "==> Syncing chat $chat to $out_dir"
     while true; do
-        get_latest_message_id "$chat" "$message_list"
+        get_latest_message_id "$chat" "$message_list" | print_with_indent
         local latest_id
         latest_id="$(jq -r ".messages | map(.id) | max" "$message_list")"
         readonly latest_id
 
         case $latest_id in
         '' | *[!0-9]*)
-            echo "Failed to get latest id ($latest_id) for chat $chat"
+            echo "==> Failed to get latest id ($latest_id) for chat $chat" | print_with_indent | print_with_indent
             break
             ;;
         esac
@@ -161,15 +165,19 @@ sync_chat() {
             break
         fi
 
-        echo "    ==> Latest ID: $latest_id"
+        echo "==> Latest ID: $latest_id" | print_with_indent
         local start_id="$((old_id + 1))"
         local end_id="$((start_id + BATCH_SIZE))"
         if [ "$end_id" -gt "$latest_id" ]; then
             end_id="$latest_id"
         fi
 
-        export_message_list "$chat" "$message_list" "$start_id" "$end_id" || return
-        download_from_message_list "$message_list" "$out_dir" || return
+        {
+            export_message_list "$chat" "$message_list" "$start_id" "$end_id" | print_with_indent
+        } || return
+        {
+            download_from_message_list "$message_list" "$out_dir" | print_with_indent
+        } || return
 
         echo "$end_id" >"$STAMPS_DIR/$chat"
     done
