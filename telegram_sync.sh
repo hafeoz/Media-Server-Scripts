@@ -84,9 +84,9 @@ tdl_download_wrapper() {
 
     local template
     if [[ -n "$external_id" ]]; then
-        template="${external_id}_{{ filenamify .FileCaption 96 }}_{{ filenamify .FileName 96 }}_{{ .DialogID }}_{{ pad .MessageID 5 }}.mp4"
+        template="${external_id}_{{ filenamify .FileCaption 96 }}_{{ filenamify .FileName 96 }}_{{ .DialogID }}_{{ .MessageID }}.mp4"
     else
-        template="{{ pad .MessageID 5 }}_{{ filenamify .FileCaption 96 }}_{{ filenamify .FileName 96 }}_{{ .DialogID }}.mp4"
+        template="{{ .MessageID }}_{{ filenamify .FileCaption 96 }}_{{ filenamify .FileName 96 }}_{{ .DialogID }}.mp4"
     fi
     readonly template
     {
@@ -172,11 +172,11 @@ sync_chat() {
         fi
 
         {
-            export_message_list "$chat" "$message_list" "$start_id" "$end_id" | print_with_indent
-        } || return
+            export_message_list "$chat" "$message_list" "$start_id" "$end_id" || return "$?"
+        } | print_with_indent
         {
-            download_from_message_list "$message_list" "$out_dir" | print_with_indent
-        } || return
+            download_from_message_list "$message_list" "$out_dir" || return "$?"
+        } | print_with_indent
 
         echo "$end_id" >"$STAMPS_DIR/$chat"
     done
