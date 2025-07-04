@@ -16,7 +16,7 @@ deduplicate() {
     echo "Deduplicate (Hash) at $1 skipping $2 started at $(date)"
     czkawka_cli dup --directories "$1" --excluded-directories "$2" --delete-method "$3" --use-prehash-cache --hash-type xxh3
     echo "Deduplicate (Image) at $1 skipping $2 started at $(date)"
-    czkawka_cli image --directories "$1" --excluded-directories "$2" --delete-method "$3" --similarity-preset Original --hash-alg DoubleGradient --image-filter Lanczos3
+    czkawka_cli image --directories "$1" --excluded-directories "$2" --delete-method "$3" --similarity-preset VeryHigh --hash-alg DoubleGradient --image-filter Lanczos3
     echo "Deduplicate (Music) at $1 skipping $2 started at $(date)"
     czkawka_cli music --directories "$1" --excluded-directories "$2" --delete-method "$3" --search-method CONTENT --maximum-difference 0.5 --minimum-segment-duration 120
     echo "Deduplicate (Video) at $1 skipping $2 started at $(date)"
