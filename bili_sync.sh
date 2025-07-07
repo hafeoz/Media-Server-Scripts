@@ -109,7 +109,7 @@ fi
 
 while true; do
     for favlist in "${FAVLISTS[@]}"; do
-        sync_fav_list "${favlist%%:*}" "${favlist##*:}"
+        sync_fav_list "${favlist%%:*}" "${favlist##*:}" || continue
     done
 
     echo "----------------" >&2
