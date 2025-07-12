@@ -106,13 +106,15 @@ download_from_message_list() {
     echo "==> Downloading $len media(s)"
 
     # Download embed media
-    if tdl_download_wrapper "$output_dir" --file "$input_message_list" "" | print_with_indent; then
-        echo "==> Download completed" | print_with_indent
-    else
-        local -r exit_code="$?"
-        echo "==> Download failed with exit code $exit_code" | print_with_indent
-        return "$?"
-    fi
+    {
+        if tdl_download_wrapper "$output_dir" --file "$input_message_list" ""; then
+            echo "==> Download completed"
+        else
+            local -r exit_code="$?"
+            echo "==> Download failed with exit code $exit_code"
+            return "$exit_code"
+        fi
+    } | print_with_indent
 
     # Download URLs
     jq -r ".messages[] | select(.file==\"\") | .id + \":\" .text" "$input_message_list" | while read -r line; do
@@ -122,12 +124,28 @@ download_from_message_list() {
         if [[ "$line" == https://telegra.ph* ]]; then
             {
                 echo "==> Attempting to download $line using telegraph.py"
-                python /usr/local/bin/telegraph.py "$output_dir" "$external_id" "$line" 2>&1 | print_with_indent
+                {
+                    if python /usr/local/bin/telegraph.py "$output_dir" "$external_id" "$line" 2>&1; then
+                        echo "==> Download completed"
+                    else
+                        local -r exit_code="$?"
+                        echo "==> Download failed with exit code $exit_code"
+                        return "$exit_code"
+                    fi
+                } | print_with_indent
             } | print_with_indent
         elif [[ "$line" == https://t.me* ]]; then
             {
                 echo "==> Attempting to download $line using tdl url argument"
-                tdl_download_wrapper "$output_dir" --url "$line" "$external_id" | print_with_indent
+                {
+                    if tdl_download_wrapper "$output_dir" --url "$line" "$external_id"; then
+                        echo "==> Download completed"
+                    else
+                        local -r exit_code="$?"
+                        echo "==> Download failed with exit code $exit_code"
+                        return "$exit_code"
+                    fi
+                } | print_with_indent
             } | print_with_indent
         else
             echo "==> Warning: ignoring unknown text $line with external id $external_id" | print_with_indent
@@ -144,14 +162,22 @@ sync_chat() {
     local -r message_list="$tmp_dir/message_list.json"
     echo "==> Syncing chat $chat to $out_dir"
     while true; do
-        get_latest_message_id "$chat" "$message_list" | print_with_indent
+        {
+            if get_latest_message_id "$chat" "$message_list" | print_with_indent; then
+                echo "==> Get latest message ID completed"
+            else
+                local -r exit_code="$?"
+                echo "==> Get latest message ID failed with exit code $exit_code"
+                return "$exit_code"
+            fi
+        } | print_with_indent
         local latest_id
         latest_id="$(jq -r ".messages | map(.id) | max" "$message_list")"
 
         case $latest_id in
         '' | *[!0-9]*)
-            echo "==> Failed to get latest id ($latest_id) for chat $chat" | print_with_indent | print_with_indent
-            break
+            echo "==> Failed to get latest id ($latest_id) for chat $chat" | print_with_indent
+            return 1
             ;;
         esac
 
@@ -161,7 +187,8 @@ sync_chat() {
         fi
 
         if [ "$old_id" -ge "$latest_id" ]; then
-            break
+            echo "==> No new messages in chat $chat ($old_id >= $latest_id)" | print_with_indent
+            return 0
         fi
 
         echo "==> Latest ID: $latest_id" | print_with_indent
@@ -201,7 +228,13 @@ fi
 
 while true; do
     for chat in "${CHATS[@]}"; do
-        sync_chat "${chat%%:*}" "${chat##*:}" || continue
+        if sync_chat "${chat%%:*}" "${chat##*:}"; then
+            continue
+        else
+            exit_code="$?"
+            echo "==> Chat ${chat%%:*} failed to sync with exit code $exit_code"
+            continue
+        fi
     done
     echo "==> Sleeping from $(date)"
     sleep 5m &
