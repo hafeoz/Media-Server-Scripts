@@ -114,7 +114,7 @@ download_from_message_list() {
             echo "==> Download failed with exit code $exit_code"
             return "$exit_code"
         fi
-    } | print_with_indent
+    } | print_with_indent || return "$?"
 
     # Download URLs
     jq -r ".messages[] | select(.file==\"\") | .id + \":\" .text" "$input_message_list" | while read -r line; do
@@ -132,8 +132,8 @@ download_from_message_list() {
                         echo "==> Download failed with exit code $exit_code"
                         return "$exit_code"
                     fi
-                } | print_with_indent
-            } | print_with_indent
+                } | print_with_indent || return "$?"
+            } | print_with_indent || return "$?"
         elif [[ "$line" == https://t.me* ]]; then
             {
                 echo "==> Attempting to download $line using tdl url argument"
@@ -145,8 +145,8 @@ download_from_message_list() {
                         echo "==> Download failed with exit code $exit_code"
                         return "$exit_code"
                     fi
-                } | print_with_indent
-            } | print_with_indent
+                } | print_with_indent || return "$?"
+            } | print_with_indent || return "$?"
         else
             echo "==> Warning: ignoring unknown text $line with external id $external_id" | print_with_indent
         fi
@@ -170,7 +170,7 @@ sync_chat() {
                 echo "==> Get latest message ID failed with exit code $exit_code" | print_with_indent
                 return "$exit_code"
             fi
-        } | print_with_indent
+        } | print_with_indent || return "$?"
         local latest_id
         latest_id="$(jq -r ".messages | map(.id) | max" "$message_list")"
 
@@ -200,10 +200,10 @@ sync_chat() {
 
         {
             export_message_list "$chat" "$message_list" "$start_id" "$end_id" || return "$?"
-        } | print_with_indent
+        } | print_with_indent || return "$?"
         {
             download_from_message_list "$message_list" "$out_dir" || return "$?"
-        } | print_with_indent
+        } | print_with_indent || return "$?"
 
         echo "$end_id" >"$STAMPS_DIR/$chat"
     done
@@ -229,6 +229,7 @@ fi
 while true; do
     for chat in "${CHATS[@]}"; do
         if sync_chat "${chat%%:*}" "${chat##*:}"; then
+            echo "==> Chat ${chat%%:*} synced successfully"
             continue
         else
             exit_code="$?"
