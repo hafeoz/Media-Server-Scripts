@@ -84,9 +84,9 @@ tdl_download_wrapper() {
 
     local template
     if [[ -n "$external_id" ]]; then
-        template="${external_id}_{{ filenamify .FileCaption 96 }}_{{ filenamify .FileName 96 }}_{{ .DialogID }}_{{ .MessageID }}.mp4"
+        template="{{ trunc -5 ( cat \"00000\" \"${external_id}\" ) }}_{{ abbrev 96 (regexReplaceAllLiteral \"[<>:\"/\\\\|?*\\x00-\\x1F]\" .FileCaption) \"\"  }}_{{ abbrev 96 regexReplaceAllLiteral \"[<>:\"/\\\\|?*\\x00-\\x1F]\" .FileName \"\" }}_{{ .DialogID }}_{{ .MessageID }}.mp4"
     else
-        template="{{ .MessageID }}_{{ filenamify .FileCaption 96 }}_{{ filenamify .FileName 96 }}_{{ .DialogID }}.mp4"
+        template="{{ trunc -5 ( cat \"00000\" .MessageID ) }}_{{ abbrev 96 (regexReplaceAllLiteral \"[<>:\"/\\\\|?*\\x00-\\x1F]\" .FileCaption) \"\"  }}_{{ abbrev 96 regexReplaceAllLiteral \"[<>:\"/\\\\|?*\\x00-\\x1F]\" .FileName \"\" }}_{{ .DialogID }}.mp4"
     fi
     readonly template
     {
@@ -163,11 +163,11 @@ sync_chat() {
     echo "==> Syncing chat $chat to $out_dir"
     while true; do
         {
-            if get_latest_message_id "$chat" "$message_list" | print_with_indent; then
-                echo "==> Get latest message ID completed"
+            if get_latest_message_id "$chat" "$message_list"; then
+                echo "==> Get latest message ID completed" | print_with_indent
             else
                 local -r exit_code="$?"
-                echo "==> Get latest message ID failed with exit code $exit_code"
+                echo "==> Get latest message ID failed with exit code $exit_code" | print_with_indent
                 return "$exit_code"
             fi
         } | print_with_indent
