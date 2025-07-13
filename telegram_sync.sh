@@ -84,9 +84,9 @@ tdl_download_wrapper() {
 
     local template
     if [[ -n "$external_id" ]]; then
-        template="{{ trunc -5 ( nospace ( cat \"00000\" \"${external_id}\" ) ) }}_{{ abbrev 96 (regexReplaceAllLiteral \"[<>:\"/\\\\|?*\\x00-\\x1F]\" .FileCaption) \"\"  }}_{{ abbrev 96 regexReplaceAllLiteral \"[<>:\\\"/\\\\|?*\\x00-\\x1F]\" .FileName \"\" }}_{{ .DialogID }}_{{ .MessageID }}.mp4"
+        template="{{ trunc -5 ( nospace ( cat \"00000\" \"${external_id}\" ) ) }}_{{ abbrev 96 (regexReplaceAllLiteral \"[<>:\\\"/\\\\|?*\\x00-\\x1F]\" .FileCaption) \"\"  }}_{{ abbrev 96 regexReplaceAllLiteral \"[<>:\\\"/\\\\|?*\\x00-\\x1F]\" .FileName \"\" }}_{{ .DialogID }}_{{ .MessageID }}.mp4"
     else
-        template="{{ trunc -5 ( nospace ( cat \"00000\" .MessageID ) ) }}_{{ abbrev 96 (regexReplaceAllLiteral \"[<>:\"/\\\\|?*\\x00-\\x1F]\" .FileCaption) \"\"  }}_{{ abbrev 96 regexReplaceAllLiteral \"[<>:\\\"/\\\\|?*\\x00-\\x1F]\" .FileName \"\" }}_{{ .DialogID }}.mp4"
+        template="{{ trunc -5 ( nospace ( cat \"00000\" .MessageID ) ) }}_{{ abbrev 96 (regexReplaceAllLiteral \"[<>:\\\"/\\\\|?*\\x00-\\x1F]\" .FileCaption) \"\"  }}_{{ abbrev 96 regexReplaceAllLiteral \"[<>:\\\"/\\\\|?*\\x00-\\x1F]\" .FileName \"\" }}_{{ .DialogID }}.mp4"
     fi
     readonly template
     {
