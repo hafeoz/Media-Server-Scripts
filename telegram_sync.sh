@@ -117,7 +117,7 @@ download_from_message_list() {
     } | print_with_indent || return "$?"
 
     # Download URLs
-    jq -r ".messages[] | select(.file==\"\") | .id + \":\" .text" "$input_message_list" | while read -r line; do
+    jq -r ".messages[] | select(.file==\"\") | (.id | tostring) + \":\" + .text" "$input_message_list" | while read -r line; do
         local external_id="${line%%:*}"
         line="${line#*:}"
 
