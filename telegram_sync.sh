@@ -208,7 +208,10 @@ sync_chat() {
         echo "$end_id" >"$STAMPS_DIR/$chat"
     done
 
-    detox --recursive --special -- "$out_dir"
+    {
+        echo "==> Sanitizing file paths"
+        detox --recursive --special --verbose -- "$out_dir" | print_with_indent
+    } | print_with_indent || return "$?"
 }
 
 tmp_dir="$(mktemp -d)"
