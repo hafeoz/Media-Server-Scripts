@@ -82,11 +82,13 @@ tdl_download_wrapper() {
     shift 4
     _assert_no_params "$@"
 
+    local -r invalid_utf8_regex="[\xC0-\xC1] | [\xF5-\xFF] | \xE0[\x80-\x9F] | \xF0[\x80-\x8F] | [\xC2-\xDF](?![\x80-\xBF]) | [\xE0-\xEF](?![\x80-\xBF]{2}) | [\xF0-\xF4](?![\x80-\xBF]{3}) | (?<=[\x00-\x7F\xF5-\xFF])[\x80-\xBF] | (?<![\xC2-\xDF]|[\xE0-\xEF]|[\xE0-\xEF][\x80-\xBF]|[\xF0-\xF4]|[\xF0-\xF4][\x80-\xBF]|[\xF0-\xF4][\x80-\xBF]{2})[\x80-\xBF] | (?<=[\xE0-\xEF])[\x80-\xBF](?![\x80-\xBF]) | (?<=[\xF0-\xF4])[\x80-\xBF](?![\x80-\xBF]{2}) | (?<=[\xF0-\xF4][\x80-\xBF])[\x80-\xBF](?![\x80-\xBF])"
+
     local template
     if [[ -n "$external_id" ]]; then
-        template="{{ trunc -5 ( list \"00000\" \"${external_id}\" | join \"\" ) }}_{{ trunc 96 ( regexReplaceAllLiteral \"[<>:\\\"/\\\\|?*\\x00-\\x1F]\" .FileCaption \"\" )  }}{{ if .FileCaption }}_{{ end }}{{ trunc 96 ( regexReplaceAllLiteral \"[<>:\\\"/\\\\|?*\\x00-\\x1F]\" .FileName \"\" ) }}_{{ .DialogID }}_{{ .MessageID }}.mp4"
+        template="{{ trunc -5 ( list \"00000\" \"${external_id}\" | join \"\" ) }}_{{ regexReplaceAllLiteral \"$invalid_utf8_regex\" ( trunc 96 ( regexReplaceAllLiteral \"[<>:\\\"/\\\\|?*\\x00-\\x1F]\" .FileCaption \"\" ) ) \"\" }}{{ if .FileCaption }}_{{ end }}{{ regexReplaceAllLiteral \"$invalid_utf8_regex\" ( trunc 96 ( regexReplaceAllLiteral \"[<>:\\\"/\\\\|?*\\x00-\\x1F]\" .FileName \"\" ) ) \"\" }}_{{ .DialogID }}_{{ .MessageID }}.mp4"
     else
-        template="{{ trunc -5 ( list \"00000\" .MessageID | join \"\" ) }}_{{ trunc 96 (regexReplaceAllLiteral \"[<>:\\\"/\\\\|?*\\x00-\\x1F]\" .FileCaption \"\" ) }}{{ if .FileCaption }}_{{ end }}{{ trunc 96 ( regexReplaceAllLiteral \"[<>:\\\"/\\\\|?*\\x00-\\x1F]\" .FileName \"\" ) }}_{{ .DialogID }}.mp4"
+        template="{{ trunc -5 ( list \"00000\" .MessageID | join \"\" ) }}_{{ regexReplaceAllLiteral \"$invalid_utf8_regex\" ( trunc 96 ( regexReplaceAllLiteral \"[<>:\\\"/\\\\|?*\\x00-\\x1F]\" .FileCaption \"\" ) ) \"\" }}{{ if .FileCaption }}_{{ end }}{{ regexReplaceAllLiteral \"$invalid_utf8_regex\" ( trunc 96 ( regexReplaceAllLiteral \"[<>:\\\"/\\\\|?*\\x00-\\x1F]\" .FileName \"\" ) ) \"\" }}_{{ .DialogID }}.mp4"
     fi
     readonly template
     {
