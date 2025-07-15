@@ -207,6 +207,8 @@ sync_chat() {
 
         echo "$end_id" >"$STAMPS_DIR/$chat"
     done
+
+    detox --recursive --special -- "$out_dir"
 }
 
 tmp_dir="$(mktemp -d)"
