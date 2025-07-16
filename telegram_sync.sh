@@ -209,7 +209,7 @@ sync_chat() {
     done
 
     while IFS= read -r -d $'\0' file; do
-        file-rename "use utf8; use Encode qw(decode encode); binmode(STDOUT, \":encoding(UTF-8)\"); \$_=decode(\"UTF-8\", \$_, Encode::FB_DEFAULT); s/\x{FFFD}//g;" "$file"
+        file-rename --force "use utf8; use Encode qw(decode encode); binmode(STDOUT, \":encoding(UTF-8)\"); \$_=decode(\"UTF-8\", \$_, Encode::FB_DEFAULT); s/\x{FFFD}//g;" "$file"
     done < <(find "$out_dir" -print0)
 }
 
