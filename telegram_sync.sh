@@ -188,7 +188,7 @@ sync_chat() {
 
         if [ "$old_id" -ge "$latest_id" ]; then
             echo "==> No new messages in chat $chat ($old_id >= $latest_id)" | print_with_indent
-            return 0
+            break
         fi
 
         echo "==> Latest ID: $latest_id" | print_with_indent
