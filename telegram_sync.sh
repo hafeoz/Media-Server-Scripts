@@ -208,10 +208,9 @@ sync_chat() {
         echo "$end_id" >"$STAMPS_DIR/$chat"
     done
 
-    {
-        echo "==> Sanitizing file paths"
-        detox --recursive --special --verbose -- "$out_dir" | print_with_indent
-    } | print_with_indent || return "$?"
+    while IFS= read -r -d $'\0' file; do
+        file-rename "use utf8; use Encode qw(decode encode); \$_=decode(\"UTF-8\", \$_, Encode::FB_DEFAULT); s/\x{FFFD}//g;" "$file"
+    done < <(find "$out_dir" -print0)
 }
 
 tmp_dir="$(mktemp -d)"
