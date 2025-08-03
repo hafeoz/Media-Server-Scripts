@@ -171,12 +171,12 @@ transcode_file() {
 
     if ! "ffmpeg_cpu_transcode_crf$is_small" "$input_file_copied" "$bitrate" -vf "scale='max(iw, 960)':-1:flags=lanczos,pad=ceil(iw/2)*2:ceil(ih/2)*2$interpolate_opts,$subtitle_vf" "${subtitle_map[@]}" "$transcoded_file" >/dev/null 2>&1; then
         # Subtitle burn-in failed; attempt without subtitle burn-in
-        if ! "ffmpeg_cpu_transcode_crf$is_small" "$input_file_copied" "$bitrate" -vf "scale='max(iw, 960)':-1:flags=lanczos,pad=ceil(iw/2)*2:ceil(ih/2)*2$interpolate_opts" "$transcoded_file"2 >&1 | sed 's/^/        /'; then
+        if ! "ffmpeg_cpu_transcode_crf$is_small" "$input_file_copied" "$bitrate" -vf "scale='max(iw, 960)':-1:flags=lanczos,pad=ceil(iw/2)*2:ceil(ih/2)*2$interpolate_opts" "$transcoded_file" 2>&1 | sed 's/^/        /'; then
             echo "    $(date): Failed to merge $output_file"
             rm -f -- "$input_file_copied" "$output_file_copied" "$transcoded_file" "$normalized_file"
         fi
     fi
-    if ! ffmpeg_merge "$input_file_copied" "$transcoded_file" "$normalized_file" "$output_file_copied"2 >&1 | sed 's/^/        /'; then
+    if ! ffmpeg_merge "$input_file_copied" "$transcoded_file" "$normalized_file" "$output_file_copied" 2>&1 | sed 's/^/        /'; then
         echo "    $(date): Failed to merge $output_file"
         rm -f -- "$input_file_copied" "$output_file_copied" "$transcoded_file" "$normalized_file"
         return
