@@ -233,7 +233,7 @@ scan_folder() {
         while [[ "$(jobs | wc -l)" -ge "$total_numbers" ]]; do wait -n; done
     done 11< <(find "$SRC_DIR" -name "*.mkv" -type f -print0)
     if [[ -n "${DST_DIR_SMALL+x}" ]]; then
-        while IFS= read -r -u 11 -d $'\0' src_file; do
+        while IFS= read -r -u 16 -d $'\0' src_file; do
             if [[ ! -f "$src_file" ]]; then continue; fi
 
             local dst_file="${src_file/"$SRC_DIR"/"$DST_DIR_SMALL"}"
@@ -287,7 +287,7 @@ scan_folder() {
         fi
     done 12< <(find "$DST_DIR" -name "*.mkv" -type f -print0)
     if [[ -n "${DST_DIR_SMALL+x}" ]]; then
-        while IFS= read -r -u 12 -d $'\0' file; do
+        while IFS= read -r -u 17 -d $'\0' file; do
             if [[ ! -f "$file" ]]; then continue; fi
 
             local oldpath="${file/"$DST_DIR_SMALL"/"$SRC_DIR"}"
@@ -296,7 +296,7 @@ scan_folder() {
                 echo "    $(date): Removing $file"
                 rm -- "$file"
             fi
-        done 12< <(find "$DST_DIR_SMALL" -name "*.mkv" -type f -print0)
+        done 17< <(find "$DST_DIR_SMALL" -name "*.mkv" -type f -print0)
     fi
 
     echo "$(date): Checking corrupted outputs"
@@ -307,12 +307,12 @@ scan_folder() {
         while [[ "$(jobs | wc -l)" -ge "$TRANSCODE_CPU_THREADS" ]]; do wait -n; done
     done 13< <(find "$DST_DIR" -name "*.mkv" -type f -print0)
     if [[ -n "${DST_DIR_SMALL+x}" ]]; then
-        while IFS= read -r -u 13 -d $'\0' file; do
+        while IFS= read -r -u 18 -d $'\0' file; do
             if [[ ! -f "$file" ]]; then continue; fi
 
             probe_file "$file" &
             while [[ "$(jobs | wc -l)" -ge "$TRANSCODE_CPU_THREADS" ]]; do wait -n; done
-        done 13< <(find "$DST_DIR_SMALL" -name "*.mkv" -type f -print0)
+        done 18< <(find "$DST_DIR_SMALL" -name "*.mkv" -type f -print0)
     fi
     wait
 
