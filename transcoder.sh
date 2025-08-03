@@ -3,7 +3,7 @@ set -o errexit -o nounset -o pipefail
 if [[ "${TRACE-0}" == 1 ]]; then set -o xtrace; fi
 # Transcode video to endpoint-friendly formats
 # Required environment variables:
-# - SRC_DIR and DST_DIR: video in SRC_DIR will will be transcoded to DST_DIR
+# - SRC_DIR, DST_DIR and DST_DIR_SMALL: video in SRC_DIR will will be transcoded to DST_DIR and DST_DIR_SMALL
 # - INPLACE_DIR: video in INPLACE_DIR will be transcoded in place
 # - TRANSCODE_VAAPI_THREADS: how many threads can use VAAPI at a time
 # - TRANSCODE_CPU_THREADS: how many threads can use CPU at a time
@@ -65,37 +65,53 @@ calculate_required_bitrate() {
     echo "${required_bitrate}k"
 }
 
+ffmpeg_wrapper() {
+    nice --adjustment=19 -- ffmpeg -nostdin -hide_banner -loglevel error -y "$@"
+}
+
 ffmpeg_cpu_transcode() {
     local -r input_file="$1"
     local -r bitrate="$2"
     shift 2
-    nice --adjustment=19 -- ffmpeg -nostdin -hide_banner -loglevel error -y \
-        -i "$input_file" \
-        -movflags +faststart -x264opts opencl -tune fastdecode -b:v "$bitrate" -c:v libx264 -svtav1-params 'fast-decode=3:tune=0:enable-qm=1:qm-min=0' -preset slow -map 0:v:0? "$@" 0<&-
+    ffmpeg_wrapper -i "$input_file" \
+        -movflags +faststart -x264opts opencl -tune fastdecode -reserve_index_space 50k -b:v "$bitrate" -c:v libx264 -svtav1-params 'fast-decode=3:tune=0:enable-qm=1:qm-min=0' -preset slow -map 0:v:0? "$@" 0<&-
+}
+ffmpeg_cpu_transcode_crf() {
+    local -r input_file="$1"
+    local -r bitrate="$2"
+    shift 2
+    ffmpeg_wrapper -i "$input_file" \
+        -movflags +faststart -x264opts opencl -tune fastdecode -reserve_index_space 50k -crf 22 -c:v libx264 -svtav1-params 'fast-decode=3:tune=0:enable-qm=1:qm-min=0' -preset slow -map 0:v:0? "$@" 0<&-
+}
+ffmpeg_cpu_transcode_crf_small() {
+    local -r input_file="$1"
+    local -r bitrate="$2"
+    shift 2
+    ffmpeg_wrapper -i "$input_file" \
+        -movflags +faststart -x264opts opencl -tune fastdecode -reserve_index_space 50k -crf 28 -c:v libx264 -svtav1-params 'fast-decode=3:tune=0:enable-qm=1:qm-min=0' -preset slow -map 0:v:0? "$@" 0<&-
 }
 ffmpeg_vaapi_transcode() {
     local -r input_file="$1"
     local -r bitrate="$2"
     shift 2
-    nice --adjustment=19 -- ffmpeg -nostdin -hide_banner -loglevel error -y \
-        -init_hw_device vaapi=vadevice:/dev/dri/renderD128 -hwaccel vaapi -hwaccel_device vadevice -filter_hw_device vadevice -i "$input_file" \
-        -movflags +faststart -x264opts opencl -tune fastdecode -compression_level 29 -b:v "$bitrate" -c:v h264_vaapi -map 0:v:0? "$@" 0<&-
+    ffmpeg_wrapper -init_hw_device vaapi=vadevice:/dev/dri/renderD128 -hwaccel vaapi -hwaccel_device vadevice -filter_hw_device vadevice -i "$input_file" \
+        -movflags +faststart -x264opts opencl -tune fastdecode -reserve_index_space 50k -compression_level 29 -b:v "$bitrate" -c:v h264_vaapi -map 0:v:0? "$@" 0<&-
 }
 ffmpeg_merge() {
     local -r input_file="$1"
     local -r transcoded_file="$2"
     local -r audio_file="$3"
     shift 3
-    nice --adjustment=19 -- ffmpeg -nostdin -hide_banner -loglevel error -y \
-        -i "$transcoded_file" -i "$input_file" -i "$audio_file" \
-        -movflags +faststart -tune fastdecode -c copy -map 0 -map 2:a? "$@" 0<&- # Add -map 1:v to copy original video content too
+    ffmpeg_wrapper -i "$transcoded_file" -i "$input_file" -i "$audio_file" \
+        -movflags +faststart -tune fastdecode -reserve_index_space 50k -c copy -map 0 -map 2:a? "$@" 0<&- # Add -map 1:v to copy original video content too
 }
 
 transcode_file() {
     local -r input_file="$1"
     local -r output_file="$2"
     local -r job_id="$3"
-    shift 3
+    local -r is_small="$4"
+    shift 4
     _assert_no_params "$@"
 
     local input_file_copied
@@ -150,69 +166,27 @@ transcode_file() {
         interpolate_opts=",fps=fps=60"
     fi
 
-    local use_vaapi
-    if [ "$(pgrep --count --full "renderD128" || true)" -lt "$TRANSCODE_VAAPI_THREADS" ]; then
-        use_vaapi="y"
-    else
-        use_vaapi="n"
-    fi
-
     echo "    $(date): transcoding $output_file (bitrate $bitrate)"
     local -r start_time=$SECONDS
 
-    if [[ "$use_vaapi" != "n" ]]; then
-        # First, try to use VA-API with subtitle burn-in
-        if ffmpeg_vaapi_transcode "$input_file_copied" "$bitrate" -vf "scale='max(iw, 960)':-1:flags=lanczos,pad=ceil(iw/2)*2:ceil(ih/2)*2$interpolate_opts,${subtitle_vf}format=nv12,hwupload" "${subtitle_map[@]}" "$transcoded_file" >/dev/null 2>&1; then
-            if ! ffmpeg_merge "$input_file_copied" "$transcoded_file" "$normalized_file" "$output_file_copied"; then
-                echo "    $(date): Failed to merge $output_file"
-            else
-                echo "    $(date): $output_file transcoded successfully using VA-API ($((SECONDS - start_time))s used | job id $job_id | vaapi: $use_vaapi)"
-                mv -- "$output_file_copied" "$output_file"
-            fi
-            rm -f -- "$input_file_copied" "$output_file_copied" "$transcoded_file" "$normalized_file"
-            return
-        fi
-    fi
-    # Then, use CPU with subtitle burn-in
-    if ffmpeg_cpu_transcode "$input_file_copied" "$bitrate" -vf "scale='max(iw, 960)':-1:flags=lanczos,pad=ceil(iw/2)*2:ceil(ih/2)*2$interpolate_opts,$subtitle_vf" "${subtitle_map[@]}" "$transcoded_file" >/dev/null 2>&1; then
-        if ! ffmpeg_merge "$input_file_copied" "$transcoded_file" "$normalized_file" "$output_file_copied"; then
+    if ! "ffmpeg_cpu_transcode_crf$is_small" "$input_file_copied" "$bitrate" -vf "scale='max(iw, 960)':-1:flags=lanczos,pad=ceil(iw/2)*2:ceil(ih/2)*2$interpolate_opts,$subtitle_vf" "${subtitle_map[@]}" "$transcoded_file" >/dev/null 2>&1; then
+        # Subtitle burn-in failed; attempt without subtitle burn-in
+        if ! "ffmpeg_cpu_transcode_crf$is_small" "$input_file_copied" "$bitrate" -vf "scale='max(iw, 960)':-1:flags=lanczos,pad=ceil(iw/2)*2:ceil(ih/2)*2$interpolate_opts" "$transcoded_file"2 >&1 | sed 's/^/        /'; then
             echo "    $(date): Failed to merge $output_file"
-        else
-            echo "    $(date): $output_file transcoded successfully using CPU ($((SECONDS - start_time))s used | job id $job_id | vaapi: $use_vaapi)"
-            mv -- "$output_file_copied" "$output_file"
-        fi
-        rm -f -- "$input_file_copied" "$output_file_copied" "$transcoded_file" "$normalized_file"
-        return
-    fi
-    if [[ "$use_vaapi" != "n" ]]; then
-        # Try to use VA-API without subtitle
-        if ffmpeg_vaapi_transcode "$input_file_copied" "$bitrate" -vf "scale='max(iw, 960)':-1:flags=lanczos,pad=ceil(iw/2)*2:ceil(ih/2)*2$interpolate_opts,format=nv12|vaapi,hwupload" "$transcoded_file" >/dev/null 2>&1; then
-            if ! ffmpeg_merge "$input_file_copied" "$transcoded_file" "$normalized_file" "$output_file_copied"; then
-                echo "    $(date): Failed to merge $output_file"
-            else
-                echo "    $(date): $output_file transcoded successfully using VA-API (no subtitle) ($((SECONDS - start_time))s used | job id $job_id | vaapi: $use_vaapi)"
-                mv -- "$output_file_copied" "$output_file"
-            fi
             rm -f -- "$input_file_copied" "$output_file_copied" "$transcoded_file" "$normalized_file"
-            return
         fi
     fi
-    # Try to use CPU without subtitle
-    if ffmpeg_cpu_transcode "$input_file_copied" "$bitrate" -vf "scale='max(iw, 960)':-1:flags=lanczos,pad=ceil(iw/2)*2:ceil(ih/2)*2$interpolate_opts" "$transcoded_file" >/dev/null 2>&1; then
-        if ! ffmpeg_merge "$input_file_copied" "$transcoded_file" "$normalized_file" "$output_file_copied"; then
-            echo "    $(date): Failed to merge $output_file"
-        else
-            echo "    $(date): $output_file transcoded successfully using CPU (no subtitle) ($((SECONDS - start_time))s used | job id $job_id | vaapi: $use_vaapi)"
-            mv -- "$output_file_copied" "$output_file"
-        fi
+    if ! ffmpeg_merge "$input_file_copied" "$transcoded_file" "$normalized_file" "$output_file_copied"2 >&1 | sed 's/^/        /'; then
+        echo "    $(date): Failed to merge $output_file"
         rm -f -- "$input_file_copied" "$output_file_copied" "$transcoded_file" "$normalized_file"
         return
     fi
 
-    echo "    $(date): Failed to transcode $output_file ($((SECONDS - start_time))s used | job id $job_id | vaapi: $use_vaapi)"
-    echo "        Raw output:"
-    ffmpeg_cpu_transcode "$input_file_copied" "$bitrate" -vf "scale='max(iw, 960)':-1:flags=lanczos,pad=ceil(iw/2)*2:ceil(ih/2)*2$interpolate_opts" "$transcoded_file" 2>&1 | sed 's/^/        /'
-    rm -f -- "$input_file_copied" "$output_file_copied" "$transcoded_file" "$normalized_file"
+    echo "    $(date): $output_file transcoded successfully using CPU ($((SECONDS - start_time))s used | job id $job_id)"
+    mv -- "$output_file_copied" "$output_file"
+    rm -f -- "$input_file_copied" "$transcoded_file" "$normalized_file"
+
+    return
 }
 
 probe_file() {
@@ -230,7 +204,7 @@ probe_file() {
 
 scan_folder() {
     echo "$(date): Scanning input folder"
-    local total_numbers="$((TRANSCODE_VAAPI_THREADS + TRANSCODE_CPU_THREADS))"
+    local total_numbers="$((TRANSCODE_CPU_THREADS))"
     local job_count="0"
     while IFS= read -r -u 11 -d $'\0' src_file; do
         if [[ ! -f "$src_file" ]]; then continue; fi
@@ -253,11 +227,39 @@ scan_folder() {
             mkdir -p "$newdir"
         fi
 
-        transcode_file "$src_file" "$dst_file" "$job_count" &
+        transcode_file "$src_file" "$dst_file" "$job_count" "" &
         job_count=$((job_count + 1))
 
         while [[ "$(jobs | wc -l)" -ge "$total_numbers" ]]; do wait -n; done
     done 11< <(find "$SRC_DIR" -name "*.mkv" -type f -print0)
+    if [[ -z "${DST_DIR_SMALL+x}" ]]; then
+        while IFS= read -r -u 11 -d $'\0' src_file; do
+            if [[ ! -f "$src_file" ]]; then continue; fi
+
+            local dst_file="${src_file/"$SRC_DIR"/"$DST_DIR_SMALL"}"
+            dst_file="${dst_file%.*}.mkv"
+            if [[ -f "$dst_file" ]]; then
+                if [[ "$dst_file" -ot "$src_file" ]]; then
+                    echo "$(date): Overwriting $dst_file because it's older than $src_file"
+                    rm -- "$dst_file"
+                else
+                    continue
+                fi
+            fi
+
+            local newdir
+            newdir="$(dirname "$dst_file")"
+            if [[ ! -d "$newdir" ]]; then
+                echo "$(date): Creating $newdir"
+                mkdir -p "$newdir"
+            fi
+
+            transcode_file "$src_file" "$dst_file" "$job_count" "_small" &
+            job_count=$((job_count + 1))
+
+            while [[ "$(jobs | wc -l)" -ge "$total_numbers" ]]; do wait -n; done
+        done 16< <(find "$SRC_DIR" -name "*.mkv" -type f -print0)
+    fi
     while IFS= read -r -u 15 -d $'\0' src_file; do
         if [[ ! -f "$src_file" ]]; then continue; fi
 
@@ -266,7 +268,7 @@ scan_folder() {
             continue
         fi
 
-        transcode_file "$src_file" "$dst_file" "$job_count" &
+        transcode_file "$src_file" "$dst_file" "$job_count" "" &
         job_count=$((job_count + 1))
 
         while [[ "$(jobs | wc -l)" -ge "$total_numbers" ]]; do wait -n; done
