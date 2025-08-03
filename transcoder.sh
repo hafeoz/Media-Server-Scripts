@@ -81,14 +81,14 @@ ffmpeg_cpu_transcode_crf() {
     local -r bitrate="$2"
     shift 2
     ffmpeg_wrapper -i "$input_file" \
-        -movflags +faststart -x264opts opencl -tune fastdecode -reserve_index_space 50k -crf 22 -c:v libx264 -svtav1-params 'fast-decode=3:tune=0:enable-qm=1:qm-min=0' -preset slow -map 0:v:0? "$@" 0<&-
+        -movflags +faststart -x264opts opencl -tune fastdecode -reserve_index_space 50k -crf 26 -c:v libx264 -svtav1-params 'fast-decode=3:tune=0:enable-qm=1:qm-min=0' -preset slow -map 0:v:0? "$@" 0<&-
 }
 ffmpeg_cpu_transcode_crf_small() {
     local -r input_file="$1"
     local -r bitrate="$2"
     shift 2
     ffmpeg_wrapper -i "$input_file" \
-        -movflags +faststart -x264opts opencl -tune fastdecode -reserve_index_space 50k -crf 28 -c:v libx264 -svtav1-params 'fast-decode=3:tune=0:enable-qm=1:qm-min=0' -preset slow -map 0:v:0? "$@" 0<&-
+        -movflags +faststart -x264opts opencl -tune fastdecode -reserve_index_space 50k -crf 32 -c:v libx264 -svtav1-params 'fast-decode=3:tune=0:enable-qm=1:qm-min=0' -preset slow -map 0:v:0? "$@" 0<&-
 }
 ffmpeg_vaapi_transcode() {
     local -r input_file="$1"
