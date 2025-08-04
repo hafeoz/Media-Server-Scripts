@@ -7,6 +7,7 @@ if [[ "${TRACE-0}" == 1 ]]; then set -o xtrace; fi
 # - INPLACE_DIR: video in INPLACE_DIR will be transcoded in place
 # - TRANSCODE_VAAPI_THREADS: how many threads can use VAAPI at a time
 # - TRANSCODE_CPU_THREADS: how many threads can use CPU at a time
+# - TRANSCODE_CRF and TRANSCODE_CRF_SMALL: CRF used for transcoding
 #
 # This software is licensed under BSD Zero Clause OR CC0 v1.0 Universal OR
 # WTFPL Version 2. You may choose any of them at your will.
@@ -81,14 +82,14 @@ ffmpeg_cpu_transcode_crf() {
     local -r bitrate="$2"
     shift 2
     ffmpeg_wrapper -i "$input_file" \
-        -movflags +faststart -x264opts opencl -tune fastdecode -reserve_index_space 50k -crf 26 -c:v libx264 -svtav1-params 'fast-decode=3:tune=0:enable-qm=1:qm-min=0' -preset slow -map 0:v:0? "$@" 0<&-
+        -movflags +faststart -x264opts opencl -tune fastdecode -reserve_index_space 50k -crf "${TRANSCODE_CRF-26}" -c:v libx264 -svtav1-params 'fast-decode=3:tune=0:enable-qm=1:qm-min=0' -preset slow -map 0:v:0? "$@" 0<&-
 }
 ffmpeg_cpu_transcode_crf_small() {
     local -r input_file="$1"
     local -r bitrate="$2"
     shift 2
     ffmpeg_wrapper -i "$input_file" \
-        -movflags +faststart -x264opts opencl -tune fastdecode -reserve_index_space 50k -crf 32 -c:v libx264 -svtav1-params 'fast-decode=3:tune=0:enable-qm=1:qm-min=0' -preset slow -map 0:v:0? "$@" 0<&-
+        -movflags +faststart -x264opts opencl -tune fastdecode -reserve_index_space 50k -crf "${TRANSCODE_CRF_SMALL-32}" -c:v libx264 -svtav1-params 'fast-decode=3:tune=0:enable-qm=1:qm-min=0' -preset slow -map 0:v:0? "$@" 0<&-
 }
 ffmpeg_vaapi_transcode() {
     local -r input_file="$1"
